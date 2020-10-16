@@ -61,7 +61,8 @@ public class S2VService extends VpnService {
 
     private void startVpn(ServerConfig config) {
         Set<String> packages = new HashSet<>();
-        packages.add("com.android.chrome");
+//        packages.add("com.android.chrome");
+
         VpnService.prepare(this);
         Log.d(TAG, "Prepared");
         startConnection(new SockConnection(

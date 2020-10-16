@@ -29,38 +29,8 @@ public class SockConnection implements Runnable {
     private final Set<String> mPackages;
     private boolean stopped = false;
 
-    /**
-     * Maximum packet size is constrained by the MTU, which is given as a signed short.
-     */
     private static final int MAX_PACKET_SIZE = Short.MAX_VALUE;
-    /**
-     * Time to wait in between losing the connection and retrying.
-     */
-    private static final long RECONNECT_WAIT_MS = TimeUnit.SECONDS.toMillis(3);
-    /**
-     * Time between keepalives if there is no traffic at the moment.
-     * <p>
-     * TODO: don't do this; it's much better to let the connection die and then reconnect when
-     * necessary instead of keeping the network hardware up for hours on end in between.
-     **/
-    private static final long KEEPALIVE_INTERVAL_MS = TimeUnit.SECONDS.toMillis(15);
-    /**
-     * Time to wait without receiving any response before assuming the server is gone.
-     */
-    private static final long RECEIVE_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(20);
-    /**
-     * Time between polling the VPN interface for new traffic, since it's non-blocking.
-     * <p>
-     * TODO: really don't do this; a blocking read on another thread is much cleaner.
-     */
     private static final long IDLE_INTERVAL_MS = TimeUnit.MILLISECONDS.toMillis(100);
-    /**
-     * Number of periods of length {@IDLE_INTERVAL_MS} to wait before declaring the handshake a
-     * complete and abject failure.
-     * <p>
-     * TODO: use a higher-level protocol; hand-rolling is a fun but pointless exercise.
-     */
-    private static final int MAX_HANDSHAKE_ATTEMPTS = 50;
 
     public interface OnEstablishListener {
         void onEstablish(ParcelFileDescriptor tunInterface);
@@ -79,13 +49,14 @@ public class SockConnection implements Runnable {
                 e.printStackTrace();
             }
         }
+
         public MyPacketFlow(FileOutputStream fos) {
             this.fos = fos;
         }
     }
 
     @Override
-    public void run(){
+    public void run() {
         try {
             connect();
         } catch (IOException | PackageManager.NameNotFoundException | InterruptedException e) {
@@ -101,7 +72,7 @@ public class SockConnection implements Runnable {
         PacketFlow packetFlow = new MyPacketFlow(output);
 
         ByteBuffer packet = ByteBuffer.allocate(MAX_PACKET_SIZE);
-        Tun2socks.startSocks(packetFlow, mConfig.getHost(),mConfig.getPort());
+        Tun2socks.startSocks(packetFlow, mConfig.getHost(), mConfig.getPort());
         Log.d(TAG, "Socks5 Created");
         while (!stopped) {
             boolean idle = true;
@@ -122,8 +93,10 @@ public class SockConnection implements Runnable {
         VpnService.Builder builder = mService.new Builder();
         builder.setMtu(1500);
         builder.addAddress("10.87.0.2", 24);
-        builder.addRoute("0.0.0.0",0);
-        builder.addAllowedApplication(mPackages.iterator().next());
+        builder.addRoute("0.0.0.0", 0);
+        for (String p : mPackages) {
+            builder.addAllowedApplication(p);
+        }
         final ParcelFileDescriptor vpnInterface;
         builder.setSession(config.getHost());
         synchronized (mService) {
@@ -140,7 +113,7 @@ public class SockConnection implements Runnable {
         mOnEstablishListener = listener;
     }
 
-    public void disconnect(){
+    public void disconnect() {
         stopped = true;
     }
 
